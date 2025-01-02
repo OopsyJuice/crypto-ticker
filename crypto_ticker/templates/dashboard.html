@@ -3,21 +3,24 @@
 {% block content %}
 <div class="max-w-4xl mx-auto p-6">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">Pulse Chain Price Display</h1>
+        <h1 class="text-3xl font-bold text-gray-800">PulseChain Price Display</h1>
         <div class="bg-blue-50 rounded-lg px-4 py-2">
             <span class="text-blue-800 font-medium">Selected: {{ selected_tokens|length }}/6</span>
         </div>
     </div>
     
-    <!-- Token Selection -->
+    <!-- Token Input -->
     <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
         <form method="post" action="/add_token" class="space-y-4">
             <div class="flex items-center gap-4">
-                <select name="token" class="flex-1 p-3 border rounded-lg bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    {% for token in tokens %}
-                    <option value="{{ token.symbol }}">{{ token.symbol }} - ${{ '%.8f' | format(token.price_usd|float_format) }}</option>
-                    {% endfor %}
-                </select>
+                <input 
+                    type="text" 
+                    name="token_address" 
+                    placeholder="Enter token address (0x...)" 
+                    class="flex-1 p-3 border rounded-lg bg-gray-50"
+                    pattern="^0x[a-fA-F0-9]{40}$"
+                    required
+                >
                 <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
                     Add to Display
                 </button>
@@ -30,52 +33,30 @@
     <div class="mb-8">
         <h2 class="text-xl font-semibold text-gray-800 mb-4">Display Configuration</h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% for symbol in selected_tokens %}
-                {% for token in tokens if token.symbol == symbol %}
+            {% for address in selected_tokens %}
+                {% if address in tokens %}
                 <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
                     <div class="flex justify-between items-center">
                         <div>
-                            <h3 class="font-bold text-lg">{{ token.symbol }}</h3>
-                            <p class="text-2xl">${{ '%.8f' | format(token.price_usd|float_format) }}</p>
+                            <h3 class="font-bold text-lg">{{ tokens[address].symbol }}</h3>
+                            <p class="text-xs text-gray-500">{{ address }}</p>
+                            <p class="text-2xl">${{ '%.8f' | format(tokens[address].price_usd|float_format) }}</p>
                         </div>
                         <div class="text-right">
-                            <p class="text-lg {% if token.price_change_24h|float_format > 0 %}text-green-500{% else %}text-red-500{% endif %}">
-                                {{ '%.2f' | format(token.price_change_24h|float_format) }}%
+                            <p class="text-lg {% if tokens[address].price_change_24h|float_format > 0 %}text-green-500{% else %}text-red-500{% endif %}">
+                                {{ '%.2f' | format(tokens[address].price_change_24h|float_format) }}%
                             </p>
                             <form method="post" action="/remove_token" class="mt-2">
-                                <input type="hidden" name="token" value="{{ token.symbol }}">
+                                <input type="hidden" name="token_address" value="{{ address }}">
                                 <button type="submit" class="text-red-600 hover:text-red-800">Remove</button>
                             </form>
                         </div>
                     </div>
                 </div>
-                {% endfor %}
+                {% endif %}
             {% endfor %}
         </div>
     </div>
     {% endif %}
-
-    <!-- Available Tokens -->
-    <div>
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Available Tokens</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% for token in tokens[:10] %}
-            <div class="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow">
-                <div class="flex justify-between items-center">
-                    <div>
-                        <h3 class="font-bold">{{ token.symbol }}</h3>
-                        <p class="text-lg">${{ '%.8f' | format(token.price_usd|float_format) }}</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="{% if token.price_change_24h|float_format > 0 %}text-green-500{% else %}text-red-500{% endif %}">
-                            {{ '%.2f' | format(token.price_change_24h|float_format) }}%
-                        </p>
-                        <p class="text-sm text-gray-500">Vol: ${{ '%.2f' | format(token.volume_24h|float_format) }}</p>
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
 </div>
 {% endblock %}
