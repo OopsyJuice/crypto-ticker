@@ -1,55 +1,123 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto p-6">
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-bold text-gray-800">PulseChain Price Display</h1>
-        <div class="bg-blue-50 rounded-lg px-4 py-2">
-            <span class="text-blue-800 font-medium">Selected: {{ selected_tokens|length }}/6</span>
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header Section -->
+<div class="flex justify-between items-center mb-10 bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm transition-colors duration-200">
+    <div class="flex items-center">
+        <h2 class="text-3xl font-bold text-gray-800 dark:text-white">Display Configuration</h2>
+    </div>
+    <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg px-4 py-2 shadow-sm">
+        <span class="text-white font-medium">Selected: {{ selected_tokens|length }}/6</span>
+    </div>
+</div>
+    
+    <!-- Token Input Section -->
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-8 transition-colors duration-200">
+        <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-8">Add Tokens</h2>
+
+        <!-- Option 1: Connect Wallet -->
+        <div class="mb-10">
+            <div class="flex items-center mb-4">
+                <div class="bg-blue-100 dark:bg-blue-900 rounded-full p-2 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Option 1: Connect Metamask</h3>
+            </div>
+            <button 
+                id="connectWallet" 
+                class="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white px-6 py-4 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+            >
+                Connect Metamask
+            </button>
+            <div id="walletTokens" class="mt-4 space-y-2"></div>
+        </div>
+
+        <!-- Option 2: Enter Wallet Address -->
+        <div class="mb-10">
+            <div class="flex items-center mb-4">
+                <div class="bg-purple-100 dark:bg-purple-900 rounded-full p-2 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-600 dark:text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Option 2: Enter Wallet Address</h3>
+            </div>
+            <div class="space-y-4">
+                <form id="scanWalletForm" class="flex gap-3">
+                    <input 
+                        type="text" 
+                        name="wallet_address" 
+                        placeholder="Enter wallet address (0x...)" 
+                        class="flex-1 p-4 text-gray-900 border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all duration-200 bg-white placeholder-gray-500"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                        required
+                    >
+                    <button type="submit" class="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-8 py-4 rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium whitespace-nowrap">
+                        Scan Wallet
+                    </button>
+                </form>
+                <div id="walletScanResults" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Option 3: Enter Token Address -->
+        <div>
+            <div class="flex items-center mb-4">
+                <div class="bg-green-100 dark:bg-green-900 rounded-full p-2 mr-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-700 dark:text-gray-300">Option 3: Enter Token Address</h3>
+            </div>
+            <div class="space-y-4">
+                <form id="tokenSearchForm" class="flex gap-3">
+                    <input 
+                        type="text" 
+                        name="token_address" 
+                        placeholder="Enter token address (0x...)" 
+                        class="flex-1 p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                        pattern="^0x[a-fA-F0-9]{40}$"
+                        required
+                    >
+                    <button type="submit" class="bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-4 rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium whitespace-nowrap">
+                        Search Token
+                    </button>
+                </form>
+                <div id="tokenSearchResult" class="space-y-2"></div>
+            </div>
         </div>
     </div>
-    
-    <!-- Token Input -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-        <form method="post" action="/add_token" class="space-y-4">
-            <div class="flex items-center gap-4">
-                <input 
-                    type="text" 
-                    name="token_address" 
-                    placeholder="Enter token address (0x...)" 
-                    class="flex-1 p-3 border rounded-lg bg-gray-50"
-                    pattern="^0x[a-fA-F0-9]{40}$"
-                    required
-                >
-                <button type="submit" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
-                    Add to Display
-                </button>
-            </div>
-        </form>
-    </div>
 
-    <!-- Selected Tokens -->
+    <!-- Selected Tokens Display -->
     {% if selected_tokens %}
     <div class="mb-8">
-        <h2 class="text-xl font-semibold text-gray-800 mb-4">Display Configuration</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-6">Tracked Tokens</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             {% for address in selected_tokens %}
                 {% if address in tokens %}
-                <div class="bg-white rounded-lg shadow-sm p-4 border-l-4 border-blue-500">
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <h3 class="font-bold text-lg">{{ tokens[address].symbol }}</h3>
-                            <p class="text-xs text-gray-500">{{ address }}</p>
-                            <p class="text-2xl">${{ '%.8f' | format(tokens[address].price_usd|float_format) }}</p>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-lg {% if tokens[address].price_change_24h|float_format > 0 %}text-green-500{% else %}text-red-500{% endif %}">
-                                {{ '%.2f' | format(tokens[address].price_change_24h|float_format) }}%
-                            </p>
-                            <form method="post" action="/remove_token" class="mt-2">
-                                <input type="hidden" name="token_address" value="{{ address }}">
-                                <button type="submit" class="text-red-600 hover:text-red-800">Remove</button>
-                            </form>
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all duration-200">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-xl text-gray-800 dark:text-white">{{ tokens[address].symbol }}</h3>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1">{{ address }}</p>
+                                <p class="text-3xl font-bold mt-3 text-gray-900 dark:text-white">${{ '%.8f' | format(tokens[address].price_usd|float_format) }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="inline-block px-3 py-1 rounded-full text-sm font-medium {% if tokens[address].price_change_24h|float_format > 0 %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% else %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200{% endif %}">
+                                    {{ '%.2f' | format(tokens[address].price_change_24h|float_format) }}%
+                                </p>
+                                <form method="post" action="/remove_token" class="mt-3">
+                                    <input type="hidden" name="token_address" value="{{ address }}">
+                                    <button type="submit" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors text-sm font-medium">
+                                        Remove Token
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -58,5 +126,237 @@
         </div>
     </div>
     {% endif %}
+
+    <!-- Last Update Time -->
+    <div class="text-center text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded-lg shadow-sm py-4 transition-colors duration-200">
+        Token list last refreshed: {{ last_update }}
+    </div>
 </div>
+
+<!-- Token List Template -->
+<template id="tokenItemTemplate">
+    <div class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-all duration-200">
+        <div class="flex justify-between items-center">
+            <div>
+                <span class="font-medium text-gray-900 dark:text-white">{symbol}</span>
+                <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1 font-mono">{address}</span>
+            </div>
+            <button 
+                onclick="addTokenToTracker('{address}')" 
+                class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+            >
+                Add to Display
+            </button>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let selectedAccount;
+
+async function displayTokenList(tokens, containerId) {
+    const container = document.getElementById(containerId);
+    if (tokens.length > 0) {
+        const tokenList = tokens.map(token => {
+            const template = document.getElementById('tokenItemTemplate').innerHTML;
+            return template
+                .replace(/{symbol}/g, token.symbol || 'Unknown')
+                .replace(/{address}/g, token.contractAddress || token.address);
+        }).join('');
+        container.innerHTML = tokenList;
+    } else {
+        container.innerHTML = `
+            <div class="text-sm text-gray-500 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                No tokens found
+            </div>
+        `;
+    }
+}
+
+async function loadTokens() {
+    const walletTokens = document.getElementById('walletTokens');
+    
+    // Show loading state
+    walletTokens.innerHTML = '<div class="loading-spinner"></div> Loading tokens...';
+    walletTokens.classList.remove('hidden');
+
+    // Fetch tokens
+    const response = await fetch(`/api/tokens/${selectedAccount}`);
+    const tokens = await response.json();
+    await displayTokenList(tokens, 'walletTokens');
+}
+
+async function connectWallet() {
+    const connectButton = document.getElementById('connectWallet');
+    const walletTokens = document.getElementById('walletTokens');
+
+    try {
+        if (typeof window.ethereum === 'undefined') {
+            throw new Error('Please install MetaMask to use this feature');
+        }
+
+        // Request account access
+        const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+        selectedAccount = accounts[0];
+
+        // Update button permanently
+        connectButton.innerHTML = 'Load Tokens';
+        connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+        connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
+        
+        // Remove old event listener and add new one
+        connectButton.onclick = loadTokens;
+
+    } catch (error) {
+        console.error('Connection error:', error);
+        walletTokens.innerHTML = `
+            <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+                Error: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Initial event listener
+const connectButton = document.getElementById('connectWallet');
+connectButton.onclick = connectWallet;
+
+// Store connection state
+if (window.ethereum) {
+    ethereum.request({ method: 'eth_accounts' })
+        .then(accounts => {
+            if (accounts.length > 0) {
+                selectedAccount = accounts[0];
+                connectButton.innerHTML = 'Load Tokens';
+                connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                connectButton.onclick = loadTokens;
+            }
+        });
+}
+
+async function scanWallet(event) {
+    event.preventDefault();  // Make sure we're preventing form submission
+    const address = event.target.wallet_address.value;
+    const resultsDiv = document.getElementById('walletScanResults');
+    
+    console.log("Scanning wallet:", address);  // Debug log
+    
+    try {
+        resultsDiv.innerHTML = '<div class="loading-spinner"></div> Scanning wallet...';
+        const response = await fetch(`/api/tokens/${address}`);
+        console.log("Scan response:", response);  // Debug log
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const tokens = await response.json();
+        console.log("Found tokens:", tokens);  // Debug log
+        await displayTokenList(tokens, 'walletScanResults');
+    } catch (error) {
+        console.error("Scan error:", error);  // Debug log
+        resultsDiv.innerHTML = `
+            <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+                Error scanning wallet: ${error.message}
+            </div>
+        `;
+    }
+}
+
+// Make sure the form event listener is properly attached
+document.getElementById('scanWalletForm').addEventListener('submit', scanWallet);
+
+async function searchToken(event) {
+    event.preventDefault();
+    const address = event.target.token_address.value;
+    const resultDiv = document.getElementById('tokenSearchResult');
+    
+    try {
+        resultDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400">Searching token...</div>';
+        const response = await fetch(`/api/token/${address}`);
+        const token = await response.json();
+        
+        if (token) {
+            const template = document.getElementById('tokenItemTemplate').innerHTML;
+            resultDiv.innerHTML = template
+                .replace(/{symbol}/g, token.symbol || 'Unknown')
+                .replace(/{address}/g, token.address);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="text-sm text-gray-500 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    Token not found
+                </div>
+            `;
+        }
+    } catch (error) {
+        resultDiv.innerHTML = `
+            <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+                Error: ${error.message}
+            </div>
+        `;
+    }
+}
+
+async function addTokenToTracker(address) {
+    try {
+        console.log("Adding token:", address);
+        const response = await fetch('/add_token', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `token_address=${address}`
+        });
+        
+        if (response.ok) {
+    // Find the token's button that was clicked
+    const tokenButton = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`);
+    if (tokenButton) {
+        // Create notification text
+        const notification = document.createElement('span');
+        notification.className = 'text-blue-600 ml-2 text-sm font-medium animate-fade-in';
+        notification.innerHTML = '✓ Added to display • <a href="#" class="text-blue-700 hover:underline">Refresh to view</a>';
+        
+        // Add fade-in animation style
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(-5px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-fade-in {
+                animation: fadeIn 0.3s ease-out forwards;
+            }
+        `;
+        document.head.appendChild(style);
+
+        const refreshLink = notification.querySelector('a');
+        refreshLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.reload();
+        });
+
+        
+
+                // Insert notification after the button
+                tokenButton.parentNode.appendChild(notification);
+                
+                // Update button style to show success state
+                tokenButton.disabled = true;
+                tokenButton.classList.remove('bg-gradient-to-r', 'from-blue-500', 'to-blue-600', 'hover:from-blue-600', 'hover:to-blue-700');
+                tokenButton.classList.add('bg-green-500', 'cursor-not-allowed', 'opacity-75');
+                tokenButton.textContent = '✓ Added';
+            }
+        } else {
+            throw new Error('Failed to add token');
+        }
+    } catch (error) {
+        console.error('Error adding token:', error);
+    }
+}
+
+</script>
 {% endblock %}

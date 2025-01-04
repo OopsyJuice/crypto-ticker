@@ -3,6 +3,7 @@ from api.geckoterminal import GeckoTerminalAPI
 import threading
 import time
 import re
+import requests
 
 app = Flask(__name__)
 api = GeckoTerminalAPI()
@@ -18,16 +19,45 @@ token_cache = {
 selected_tokens = set()
 
 def update_cache():
+    print("Cache update thread started")
     while True:
+        print("\n--- Cache Update Cycle ---")
         if not token_cache['updating'] and selected_tokens:
             token_cache['updating'] = True
             try:
+                print(f"Updating cache for tokens: {selected_tokens}")
+                
+                # Update regular tokens
                 new_data = api.update_cached_tokens(list(selected_tokens))
+                print(f"New data from API: {new_data}")
                 token_cache['data'].update(new_data)
+                
+                # Debug PLS specific updates
+                if 'native' in selected_tokens:
+                    print("Found native PLS in selected tokens")
+                    try:
+                        # Try to get WPLS price directly from api.get_token_info
+                        wpls_info = api.get_token_info('0xa1077a294dde1b09bb078844df4D16dB296f254A')
+                        print(f"WPLS info received: {wpls_info}")
+                        
+                        if wpls_info and wpls_info.get('price_usd'):
+                            print("Updating PLS price with WPLS data")
+                            token_cache['data']['native'] = {
+                                'address': 'native',
+                                'symbol': 'PLS',
+                                'name': 'Pulse',
+                                'price_usd': wpls_info['price_usd'],
+                                'price_change_24h': wpls_info.get('price_change_24h', '0')
+                            }
+                            print(f"Updated native token data: {token_cache['data']['native']}")
+                    except Exception as e:
+                        print(f"Error updating PLS price: {e}")
+                
+                print(f"Final cache state: {token_cache['data']}")
                 token_cache['last_update'] = time.time()
             finally:
                 token_cache['updating'] = False
-        time.sleep(60)
+        time.sleep(10)
 
 update_thread = threading.Thread(target=update_cache, daemon=True)
 update_thread.start()
@@ -51,16 +81,111 @@ def home():
                          selected_tokens=selected_tokens,
                          last_update=last_update)
 
+@app.route('/api/tokens/<address>')
+def get_wallet_tokens(address):
+    try:
+        print(f"\nFetching tokens for address: {address}")
+        url = 'https://api.scan.pulsechain.com/api'
+
+        # First get native PLS balance
+        pls_params = {
+            'module': 'account',
+            'action': 'balance',
+            'address': address
+        }
+        
+        # Get token list first
+        list_params = {
+            'module': 'account',
+            'action': 'tokenlist',
+            'address': address
+        }
+        
+        # Make requests
+        pls_response = requests.get(url, params=pls_params)
+        token_list_response = requests.get(url, params=list_params)
+        
+        tokens = []
+        
+        # Add PLS if there's a balance
+        if pls_response.ok:
+            pls_data = pls_response.json()
+            pls_balance = pls_data.get('result', '0')
+            if int(pls_balance) > 0:
+                tokens.append({
+                    'symbol': 'PLS',
+                    'contractAddress': 'native',
+                    'name': 'Pulse',
+                    'decimals': '18'
+                })
+
+        # Add tokens with current balances
+        if token_list_response.ok:
+            data = token_list_response.json()
+            token_list = data.get('result', [])
+            
+            for token in token_list:
+                # Only add tokens with balance > 0
+                if float(token.get('balance', 0)) > 0:
+                    tokens.append({
+                        'symbol': token.get('symbol'),
+                        'contractAddress': token.get('contractAddress'),
+                        'name': token.get('name'),
+                        'decimals': token.get('decimals')
+                    })
+
+        return jsonify(tokens)
+            
+    except Exception as e:
+        print(f"Error getting wallet tokens: {str(e)}")
+        return jsonify([])
+
+@app.route('/api/token/<address>')
+def get_single_token_info(address):
+    try:
+        token_info = api.get_token_info(address)
+        if token_info:
+            return jsonify(token_info)
+        return jsonify(None)
+    except Exception as e:
+        print(f"Error getting token info: {str(e)}")
+        return jsonify(None)
+
 @app.route('/add_token', methods=['POST'])
 def add_token():
-    address = request.form.get('token_address', '').lower()
+    if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        address = request.form.get('token_address', '').lower()
+    else:
+        data = request.get_json()
+        address = data.get('token_address', '').lower()
+
     if address and len(selected_tokens) < 6:
+        # Handle native PLS
+        if address == 'native':
+            token_info = {
+                'address': 'native',
+                'symbol': 'PLS',
+                'name': 'Pulse',
+                'price_usd': '0',
+                'price_change_24h': '0'
+            }
+            selected_tokens.add('native')
+            token_cache['data']['native'] = token_info
+            return redirect(url_for('home'))
+            
+        # Handle regular tokens
         if re.match(r'^0x[a-fA-F0-9]{40}$', address):
             token_info = api.get_token_info(address)
             if token_info:
                 selected_tokens.add(address)
                 token_cache['data'][address] = token_info
-    return redirect(url_for('home'))
+                if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                    return redirect(url_for('home'))
+                return jsonify({'success': True})
+    
+    if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+        return redirect(url_for('home'))
+    return jsonify({'success': False}), 400
 
 @app.route('/remove_token', methods=['POST'])
 def remove_token():
