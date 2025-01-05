@@ -153,39 +153,60 @@ def get_single_token_info(address):
 
 @app.route('/add_token', methods=['POST'])
 def add_token():
-    if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
-        address = request.form.get('token_address', '').lower()
-    else:
-        data = request.get_json()
-        address = data.get('token_address', '').lower()
+    try:
+        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+            address = request.form.get('token_address', '').lower()
+        else:
+            data = request.get_json()
+            address = data.get('token_address', '').lower()
 
-    if address and len(selected_tokens) < 6:
-        # Handle native PLS
-        if address == 'native':
-            token_info = {
-                'address': 'native',
-                'symbol': 'PLS',
-                'name': 'Pulse',
-                'price_usd': '0',
-                'price_change_24h': '0'
-            }
-            selected_tokens.add('native')
-            token_cache['data']['native'] = token_info
+        print(f"\n=== Adding Token: {address} ===")
+        print(f"Current token count: {len(selected_tokens)}")
+        print(f"Current selected tokens: {selected_tokens}")
+
+        # Check if token is already selected
+        if address in selected_tokens:
+            print(f"Token {address} is already selected")
             return redirect(url_for('home'))
+
+        # Pre-check the limit
+        if len(selected_tokens) >= 6:
+            print("Token limit already reached")
+            return redirect(url_for('home'))
+
+        if address:
+            print("Creating GeckoTerminal API instance...")
+            gecko_api = GeckoTerminalAPI()
             
-        # Handle regular tokens
-        if re.match(r'^0x[a-fA-F0-9]{40}$', address):
-            token_info = api.get_token_info(address)
+            print(f"Fetching token info for {address}...")
+            token_info = gecko_api.get_token_info(address)
+            
+            print(f"Token info received: {token_info}")
+            
             if token_info:
-                selected_tokens.add(address)
-                token_cache['data'][address] = token_info
-                if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
-                    return redirect(url_for('home'))
-                return jsonify({'success': True})
-    
-    if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
+                # Double-check limit before adding
+                if len(selected_tokens) < 6:
+                    print("Adding token to selected tokens and cache...")
+                    selected_tokens.add(address)
+                    token_cache['data'][address] = token_info
+                    
+                    print("After adding token:")
+                    print(f"Selected tokens: {selected_tokens}")
+                    print(f"Token count: {len(selected_tokens)}")
+                    print(f"Token cache: {token_cache['data'][address]}")
+                else:
+                    print("Token limit reached during processing")
+            else:
+                print(f"Failed to get token info for {address}")
+                
         return redirect(url_for('home'))
-    return jsonify({'success': False}), 400
+        
+    except Exception as e:
+        print(f"Error in add_token route: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return redirect(url_for('home'))
+            
 
 @app.route('/remove_token', methods=['POST'])
 def remove_token():

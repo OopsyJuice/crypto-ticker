@@ -1,7 +1,6 @@
 import requests
 from typing import Dict, List, Optional
 import time
-import re
 import json
 from pathlib import Path
 
@@ -12,6 +11,10 @@ class GeckoTerminalAPI:
     
     def __init__(self):
         self.session = requests.Session()
+        self.session.headers.update({
+            'Accept': 'application/json',
+            'User-Agent': 'PulseTracker/1.0'
+        })
         self.last_call_times = []
         self.backoff_time = 1
 
@@ -32,8 +35,57 @@ class GeckoTerminalAPI:
 
     def get_token_info(self, address: str) -> Dict:
         try:
-            # Get token info
-            info_response = self.session.get(f"{self.BASE_URL}/networks/pulsechain/tokens/{address}/info")
+            address = address.lower()
+            
+            # First determine if this is a CoinGecko token
+            coingecko_data = None
+            if address == 'native':
+                coingecko_data = {
+                    'id': 'pulsechain',
+                    'name': 'Pulse',
+                    'symbol': 'PLS'
+                }
+            elif address == '0x6b175474e89094c44da98b954eedeac495271d0f':
+                coingecko_data = {
+                    'id': 'dai-on-pulsechain',
+                    'name': 'DAI on PulseChain',
+                    'symbol': 'pDAI'
+                }
+
+            # Handle CoinGecko tokens
+            if coingecko_data:
+                print(f"Fetching {coingecko_data['symbol']} price from CoinGecko...")
+                response = self.session.get(
+                    "https://api.coingecko.com/api/v3/simple/price",
+                    params={
+                        'ids': coingecko_data['id'],
+                        'vs_currencies': 'usd',
+                        'include_24hr_change': 'true'
+                    }
+                )
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if coingecko_data['id'] in data:
+                        coin_data = data[coingecko_data['id']]
+                        return {
+                            'address': address,
+                            'symbol': coingecko_data['symbol'],
+                            'name': coingecko_data['name'],
+                            'price_usd': str(coin_data['usd']),
+                            'price_change_24h': str(coin_data.get('usd_24h_change', '0'))
+                        }
+                else:
+                    print(f"CoinGecko API error: {response.status_code}")
+                return None
+
+            # All other tokens use GeckoTerminal
+            print(f"Fetching token {address} from GeckoTerminal...")
+            self._rate_limit()
+            info_response = self.session.get(
+                f"{self.BASE_URL}/networks/pulsechain/tokens/{address}",
+                headers={'Accept': 'application/json'}
+            )
             
             if info_response.status_code == 200:
                 data = info_response.json().get('data', {})
@@ -46,60 +98,48 @@ class GeckoTerminalAPI:
                     'name': attrs.get('name', '')
                 }
 
-                # Check if this is a bridged Ethereum token
-                if "from Ethereum" in attrs.get('name', ''):
-                    # For Ethereum tokens, get price from Ethereum mainnet
-                    eth_pools_response = self.session.get(f"{self.ETH_BASE_URL}/tokens/{attrs.get('coingecko_coin_id', '')}/pools")
-                    if eth_pools_response.status_code == 200:
-                        eth_pools = eth_pools_response.json().get('data', [])
-                        if eth_pools:
-                            # Get the highest volume pool
-                            max_volume = 0
-                            best_pool = None
-                            for pool in eth_pools:
-                                pool_attrs = pool.get('attributes', {})
-                                volume = float(pool_attrs.get('volume_usd', {}).get('h24', '0') or '0')
-                                if volume > max_volume:
-                                    max_volume = volume
-                                    best_pool = pool
-                            
-                            if best_pool:
-                                pool_attrs = best_pool.get('attributes', {})
-                                return {
-                                    **token_data,
-                                    'price_usd': pool_attrs.get('base_token_price_usd', '0'),
-                                    'price_change_24h': pool_attrs.get('price_change_percentage', {}).get('h24', '0')
-                                }
-
-                # If not an Ethereum token or if Ethereum price fetch fails, get PulseChain price
-                pools_response = self.session.get(f"{self.BASE_URL}/networks/pulsechain/tokens/{address}/pools")
+                # Get highest volume pool data
+                self._rate_limit()
+                pools_response = self.session.get(
+                    f"{self.BASE_URL}/networks/pulsechain/tokens/{address}/pools",
+                    headers={'Accept': 'application/json'}
+                )
+                
                 if pools_response.status_code == 200:
                     pools_data = pools_response.json().get('data', [])
-                    wpls_pool = None
-                    max_volume = 0
-                    
-                    # Find the WPLS pool with highest volume
-                    for pool in pools_data:
-                        attrs = pool.get('attributes', {})
-                        if 'WPLS' in attrs.get('name', ''):
+                    if pools_data:
+                        # Find highest volume pool
+                        max_volume = 0
+                        best_pool = None
+                        for pool in pools_data:
+                            attrs = pool.get('attributes', {})
                             volume = float(attrs.get('volume_usd', {}).get('h24', '0') or '0')
                             if volume > max_volume:
                                 max_volume = volume
-                                wpls_pool = pool
-                    
-                    if wpls_pool:
-                        attrs = wpls_pool.get('attributes', {})
-                        price_data = {
-                            'price_usd': attrs.get('base_token_price_usd', '0'),
-                            'price_change_24h': attrs.get('price_change_percentage', {}).get('h24', '0')
-                        }
-                        return {**token_data, **price_data}
+                                best_pool = pool
+                        
+                        if best_pool:
+                            pool_attrs = best_pool.get('attributes', {})
+                            token_symbol = token_data['symbol']
+                            
+                            # Determine if token is base or quote
+                            is_base = token_symbol == pool_attrs.get('base_token_symbol', '')
+                            price = pool_attrs.get('base_token_price_usd' if is_base else 'quote_token_price_usd', '0')
+                            price_change = pool_attrs.get('price_change_percentage', {}).get('h24', '0')
+                            
+                            return {
+                                **token_data,
+                                'price_usd': price,
+                                'price_change_24h': price_change
+                            }
             
-            print(f"Error fetching complete token data for {address}")
+            print(f"Error fetching token info for {address}")
             return None
                 
         except Exception as e:
-            print(f"Error fetching token info: {e}")
+            print(f"Error in get_token_info: {str(e)}")
+            import traceback
+            print(f"Traceback: {traceback.format_exc()}")
             return None
 
     def _load_cache(self):
