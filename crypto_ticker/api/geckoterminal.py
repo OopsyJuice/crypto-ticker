@@ -12,8 +12,7 @@ class GeckoTerminalAPI:
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
-            'Accept': 'application/json',
-            'User-Agent': 'PulseTracker/1.0'
+            'Accept': 'application/json'
         })
         self.last_call_times = []
         self.backoff_time = 1
@@ -36,16 +35,19 @@ class GeckoTerminalAPI:
     def get_token_info(self, address: str) -> Dict:
         try:
             address = address.lower()
+            print(f"\n=== Getting token info for address: {address} ===")
             
             # First determine if this is a CoinGecko token
             coingecko_data = None
             if address == 'native':
+                print("Identified as native PLS token")
                 coingecko_data = {
                     'id': 'pulsechain',
                     'name': 'Pulse',
                     'symbol': 'PLS'
                 }
-            elif address == '0x6b175474e89094c44da98b954eedeac495271d0f':
+            elif address == '0x1d2adcc1920dad95ca82143a5a6e4ab8662fe966':
+                print("Identified as pDAI token")
                 coingecko_data = {
                     'id': 'dai-on-pulsechain',
                     'name': 'DAI on PulseChain',
@@ -55,6 +57,8 @@ class GeckoTerminalAPI:
             # Handle CoinGecko tokens
             if coingecko_data:
                 print(f"Fetching {coingecko_data['symbol']} price from CoinGecko...")
+                print(f"Using CoinGecko ID: {coingecko_data['id']}")
+                
                 response = self.session.get(
                     "https://api.coingecko.com/api/v3/simple/price",
                     params={
@@ -64,23 +68,31 @@ class GeckoTerminalAPI:
                     }
                 )
                 
+                print(f"CoinGecko response status: {response.status_code}")
                 if response.status_code == 200:
                     data = response.json()
+                    print(f"CoinGecko response data: {data}")
+                    
                     if coingecko_data['id'] in data:
                         coin_data = data[coingecko_data['id']]
-                        return {
+                        result = {
                             'address': address,
                             'symbol': coingecko_data['symbol'],
                             'name': coingecko_data['name'],
                             'price_usd': str(coin_data['usd']),
                             'price_change_24h': str(coin_data.get('usd_24h_change', '0'))
                         }
+                        print(f"Returning CoinGecko data: {result}")
+                        return result
+                    else:
+                        print(f"CoinGecko ID {coingecko_data['id']} not found in response")
                 else:
                     print(f"CoinGecko API error: {response.status_code}")
+                    print(f"Response content: {response.text}")
                 return None
 
             # All other tokens use GeckoTerminal
-            print(f"Fetching token {address} from GeckoTerminal...")
+            print(f"Using GeckoTerminal for token {address}...")
             self._rate_limit()
             info_response = self.session.get(
                 f"{self.BASE_URL}/networks/pulsechain/tokens/{address}",
@@ -127,11 +139,13 @@ class GeckoTerminalAPI:
                             price = pool_attrs.get('base_token_price_usd' if is_base else 'quote_token_price_usd', '0')
                             price_change = pool_attrs.get('price_change_percentage', {}).get('h24', '0')
                             
-                            return {
+                            result = {
                                 **token_data,
                                 'price_usd': price,
                                 'price_change_24h': price_change
                             }
+                            print(f"Returning GeckoTerminal data: {result}")
+                            return result
             
             print(f"Error fetching token info for {address}")
             return None
