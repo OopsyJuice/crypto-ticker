@@ -143,12 +143,20 @@ def get_wallet_tokens(address):
 @app.route('/api/token/<address>')
 def get_single_token_info(address):
     try:
+        print(f"Fetching token info for address: {address}")
         token_info = api.get_token_info(address)
+        print(f"Token info received: {token_info}")
         if token_info:
+            print("Returning token info:")
+            print(token_info)
             return jsonify(token_info)
-        return jsonify(None)
+        else:
+            print("Token info not found")
+            return jsonify(None)
     except Exception as e:
         print(f"Error getting token info: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         return jsonify(None)
 
 @app.route('/add_token', methods=['POST'])

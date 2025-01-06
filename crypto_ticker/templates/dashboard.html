@@ -79,7 +79,7 @@
                         type="text" 
                         name="token_address" 
                         placeholder="Enter token address (0x...)" 
-                        class="flex-1 p-4 border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200"
+                        class="flex-1 p-4 text-gray-900 border border-gray-200 dark:border-gray-700 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-200 bg-white placeholder-gray-500"
                         pattern="^0x[a-fA-F0-9]{40}$"
                         required
                     >
@@ -266,9 +266,6 @@ async function scanWallet(event) {
     }
 }
 
-// Make sure the form event listener is properly attached
-document.getElementById('scanWalletForm').addEventListener('submit', scanWallet);
-
 async function searchToken(event) {
     event.preventDefault();
     const address = event.target.token_address.value;
@@ -299,6 +296,12 @@ async function searchToken(event) {
         `;
     }
 }
+
+// Add all event listeners after function definitions
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('scanWalletForm').addEventListener('submit', scanWallet);
+    document.getElementById('tokenSearchForm').addEventListener('submit', searchToken);
+});
 
 async function addTokenToTracker(address) {
     try {
