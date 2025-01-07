@@ -58,14 +58,4 @@ A web application for tracking PulseChain token prices with customizable update 
 - Web3.js
 - Tailwind CSS
 
-## Contributors
 
-- Project Owner: [Your Name]
-
-## License
-
-[Add your license information here]
-
-## Additional Notes
-
-[Any additional information, setup instructions, or special considerations]
