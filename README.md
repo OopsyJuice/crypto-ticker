@@ -35,6 +35,7 @@ A web application for tracking PulseChain token prices with customizable update 
 3. Install dependencies:
 
    ```bash
+   cd crypto_ticker
    pip install -r requirements.txt
    ```
 
