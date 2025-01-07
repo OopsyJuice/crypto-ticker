@@ -11,6 +11,31 @@
         <span class="text-white font-medium">Selected: {{ selected_tokens|length }}/6</span>
     </div>
 </div>
+
+<!-- Priority Rules Legend -->
+<div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm mb-8 transition-colors duration-200">
+    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Priority Update Limits</h3>
+    <div class="flex flex-col md:flex-row md:justify-between gap-4">
+        <div class="flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg flex-1">
+            <div class="text-center">
+                <span class="text-blue-600 dark:text-blue-400 font-semibold">High Priority</span>
+                <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">1 token, 1m updates</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-center bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg flex-1">
+            <div class="text-center">
+                <span class="text-purple-600 dark:text-purple-400 font-semibold">Medium Priority</span>
+                <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">2 tokens, 5m updates</p>
+            </div>
+        </div>
+        <div class="flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 p-3 rounded-lg flex-1">
+            <div class="text-center">
+                <span class="text-gray-600 dark:text-gray-400 font-semibold">Low Priority</span>
+                <p class="text-gray-600 dark:text-gray-300 text-sm mt-1">3 tokens, 15m updates</p>
+            </div>
+        </div>
+    </div>
+</div>
     
     <!-- Token Input Section -->
     <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 mb-8 transition-colors duration-200">
@@ -103,7 +128,16 @@
                     <div class="p-6">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h3 class="font-bold text-xl text-gray-800 dark:text-white">{{ tokens[address].symbol }}</h3>
+                                <div class="flex items-center gap-2">
+                                    <h3 class="font-bold text-xl text-gray-800 dark:text-white">{{ tokens[address].symbol }}</h3>
+                                    {% if address in token_priorities['high'] %}
+                                        <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">1m updates</span>
+                                    {% elif address in token_priorities['medium'] %}
+                                        <span class="px-2 py-1 text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 rounded-full">5m updates</span>
+                                    {% else %}
+                                        <span class="px-2 py-1 text-xs font-medium bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 rounded-full">15m updates</span>
+                                    {% endif %}
+                                </div>
                                 <p class="text-xs text-gray-500 dark:text-gray-400 font-mono mt-1">{{ address }}</p>
                                 <p class="text-3xl font-bold mt-3 text-gray-900 dark:text-white">${{ '%.8f' | format(tokens[address].price_usd|float_format) }}</p>
                             </div>
@@ -141,12 +175,24 @@
                 <span class="font-medium text-gray-900 dark:text-white">{symbol}</span>
                 <span class="text-sm text-gray-500 dark:text-gray-400 block mt-1 font-mono">{address}</span>
             </div>
-            <button 
-                onclick="addTokenToTracker('{address}')" 
-                class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
-            >
-                Add to Display
-            </button>
+            <div class="flex items-center gap-2">
+                <select 
+                    class="bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-white"
+                    onchange="updatePrioritySelection('{address}', this.value)"
+                >
+                    <option value="" class="text-gray-900 dark:text-white">Select Priority</option>
+                    <option value="high" class="text-gray-900 dark:text-white">High (1m updates)</option>
+                    <option value="medium" class="text-gray-900 dark:text-white">Medium (5m updates)</option>
+                    <option value="low" class="text-gray-900 dark:text-white">Low (15m updates)</option>
+                </select>
+                <button 
+                    onclick="addTokenToTracker('{address}')" 
+                    class="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 shadow-sm hover:shadow-md font-medium"
+                    disabled
+                >
+                    Add to Display
+                </button>
+            </div>
         </div>
     </div>
 </template>
@@ -154,19 +200,34 @@
 
 {% block scripts %}
 <script>
+
 let selectedAccount;
+let selectedPriorities = {};
+
+function updatePrioritySelection(address, priority) {
+    selectedPriorities[address] = priority;
+    const button = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`);
+    button.disabled = !priority;  // Enable button only when priority is selected
+}
 
 async function displayTokenList(tokens, containerId) {
+    console.log("Displaying tokens:", tokens);  // Debug line
+    console.log("Container ID:", containerId);  // Debug line
     const container = document.getElementById(containerId);
     if (tokens.length > 0) {
+        console.log("Has tokens, creating list");  // Debug line
         const tokenList = tokens.map(token => {
+            console.log("Processing token:", token);  // Debug line
             const template = document.getElementById('tokenItemTemplate').innerHTML;
-            return template
+            const filledTemplate = template
                 .replace(/{symbol}/g, token.symbol || 'Unknown')
                 .replace(/{address}/g, token.contractAddress || token.address);
+            return filledTemplate;
         }).join('');
+        console.log("Created HTML:", tokenList);  // Debug line
         container.innerHTML = tokenList;
     } else {
+        console.log("No tokens found");  // Debug line
         container.innerHTML = `
             <div class="text-sm text-gray-500 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 No tokens found
@@ -223,19 +284,6 @@ async function connectWallet() {
 const connectButton = document.getElementById('connectWallet');
 connectButton.onclick = connectWallet;
 
-// Store connection state
-if (window.ethereum) {
-    ethereum.request({ method: 'eth_accounts' })
-        .then(accounts => {
-            if (accounts.length > 0) {
-                selectedAccount = accounts[0];
-                connectButton.innerHTML = 'Load Tokens';
-                connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
-                connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
-                connectButton.onclick = loadTokens;
-            }
-        });
-}
 
 async function scanWallet(event) {
     event.preventDefault();  // Make sure we're preventing form submission
@@ -297,64 +345,57 @@ async function searchToken(event) {
     }
 }
 
-// Add all event listeners after function definitions
-document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('scanWalletForm').addEventListener('submit', scanWallet);
-    document.getElementById('tokenSearchForm').addEventListener('submit', searchToken);
-});
-
 async function addTokenToTracker(address) {
     try {
-        console.log("Adding token:", address);
+        const priority = selectedPriorities[address];
+        if (!priority) {
+            alert('Please select a priority level first');
+            return;
+        }
+
+        console.log("Adding token:", address, "with priority:", priority);
         const response = await fetch('/add_token', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/json',
             },
-            body: `token_address=${address}`
+            body: JSON.stringify({
+                token_address: address,
+                priority: priority
+            })
         });
+        
+        const data = await response.json();
         
         if (response.ok) {
-    // Find the token's button that was clicked
-    const tokenButton = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`);
-    if (tokenButton) {
-        // Create notification text
-        const notification = document.createElement('span');
-        notification.className = 'text-blue-600 ml-2 text-sm font-medium animate-fade-in';
-        notification.innerHTML = '✓ Added to display • <a href="#" class="text-blue-700 hover:underline">Refresh to view</a>';
-        
-        // Add fade-in animation style
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-5px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            .animate-fade-in {
-                animation: fadeIn 0.3s ease-out forwards;
-            }
-        `;
-        document.head.appendChild(style);
-
-        const refreshLink = notification.querySelector('a');
-        refreshLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            window.location.reload();
-        });
-
-        
-
-                // Insert notification after the button
-                tokenButton.parentNode.appendChild(notification);
+            const tokenButton = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`);
+            if (tokenButton) {
+                const notification = document.createElement('span');
+                notification.className = 'text-blue-600 ml-2 text-sm font-medium animate-fade-in';
+                notification.innerHTML = '✓ Added to display • <a href="#" class="text-blue-700 hover:underline">Refresh to view</a>';
                 
-                // Update button style to show success state
+                const refreshLink = notification.querySelector('a');
+                refreshLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.reload();
+                });
+
+                tokenButton.parentNode.appendChild(notification);
                 tokenButton.disabled = true;
-                tokenButton.classList.remove('bg-gradient-to-r', 'from-blue-500', 'to-blue-600', 'hover:from-blue-600', 'hover:to-blue-700');
                 tokenButton.classList.add('bg-green-500', 'cursor-not-allowed', 'opacity-75');
                 tokenButton.textContent = '✓ Added';
             }
         } else {
-            throw new Error('Failed to add token');
+            // Show error message in UI
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'text-sm text-red-600 dark:text-red-400 mt-2';
+            resultDiv.textContent = data.error || 'Failed to add token';
+            
+            const buttonParent = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`).parentNode;
+            // Remove any existing error message
+            const existingError = buttonParent.querySelector('.text-red-600');
+            if (existingError) existingError.remove();
+            buttonParent.appendChild(resultDiv);
         }
     } catch (error) {
         console.error('Error adding token:', error);

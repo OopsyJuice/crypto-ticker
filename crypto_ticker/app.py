@@ -11,8 +11,16 @@ api = GeckoTerminalAPI()
 # Cache for tokens
 token_cache = {
     'data': {},
+    'last_updates': {},  # Track individual token update times
     'last_update': 0,
     'updating': False
+}
+
+# Track token priorities
+token_priorities = {
+    'high': set(),    # 1 minute updates
+    'medium': set(),  # 5 minute updates
+    'low': set()      # 15 minute updates
 }
 
 # Store selected tokens
@@ -22,45 +30,53 @@ def update_cache():
     print("Cache update thread started")
     while True:
         print("\n--- Cache Update Cycle ---")
-        if not token_cache['updating'] and selected_tokens:
+        current_time = time.time()
+        
+        if not token_cache['updating']:
             token_cache['updating'] = True
             try:
-                print(f"Updating cache for tokens: {selected_tokens}")
+                # Update high priority tokens (1 minute updates)
+                for address in token_priorities['high']:
+                    last_update = token_cache.get('last_updates', {}).get(address, 0)
+                    if current_time - last_update >= 60:  # 1 minute
+                        print(f"Updating high priority token: {address}")
+                        token_info = api.get_token_info(address)
+                        if token_info:
+                            token_cache['data'][address] = token_info
+                            if 'last_updates' not in token_cache:
+                                token_cache['last_updates'] = {}
+                            token_cache['last_updates'][address] = current_time
+
+                # Update medium priority tokens (5 minutes)
+                for address in token_priorities['medium']:
+                    last_update = token_cache.get('last_updates', {}).get(address, 0)
+                    if current_time - last_update >= 300:  # 5 minutes
+                        print(f"Updating medium priority token: {address}")
+                        token_info = api.get_token_info(address)
+                        if token_info:
+                            token_cache['data'][address] = token_info
+                            if 'last_updates' not in token_cache:
+                                token_cache['last_updates'] = {}
+                            token_cache['last_updates'][address] = current_time
+
+                # Update low priority tokens (15 minutes)
+                for address in token_priorities['low']:
+                    last_update = token_cache.get('last_updates', {}).get(address, 0)
+                    if current_time - last_update >= 900:  # 15 minutes
+                        print(f"Updating low priority token: {address}")
+                        token_info = api.get_token_info(address)
+                        if token_info:
+                            token_cache['data'][address] = token_info
+                            if 'last_updates' not in token_cache:
+                                token_cache['last_updates'] = {}
+                            token_cache['last_updates'][address] = current_time
+
+                token_cache['last_update'] = current_time
                 
-                # Update regular tokens
-                new_data = api.update_cached_tokens(list(selected_tokens))
-                print(f"New data from API: {new_data}")
-                token_cache['data'].update(new_data)
-                
-                # Debug PLS specific updates
-                if 'native' in selected_tokens:
-                    print("Found native PLS in selected tokens")
-                    try:
-                        # Try to get WPLS price directly from api.get_token_info
-                        wpls_info = api.get_token_info('0xa1077a294dde1b09bb078844df4D16dB296f254A')
-                        print(f"WPLS info received: {wpls_info}")
-                        
-                        if wpls_info and wpls_info.get('price_usd'):
-                            print("Updating PLS price with WPLS data")
-                            token_cache['data']['native'] = {
-                                'address': 'native',
-                                'symbol': 'PLS',
-                                'name': 'Pulse',
-                                'price_usd': wpls_info['price_usd'],
-                                'price_change_24h': wpls_info.get('price_change_24h', '0')
-                            }
-                            print(f"Updated native token data: {token_cache['data']['native']}")
-                    except Exception as e:
-                        print(f"Error updating PLS price: {e}")
-                
-                print(f"Final cache state: {token_cache['data']}")
-                token_cache['last_update'] = time.time()
             finally:
                 token_cache['updating'] = False
-        time.sleep(10)
-
-update_thread = threading.Thread(target=update_cache, daemon=True)
-update_thread.start()
+                
+        time.sleep(10)  # Check every 10 seconds for tokens that need updates
 
 @app.template_filter('float_format')
 def float_format(value):
@@ -79,6 +95,7 @@ def home():
     return render_template('dashboard.html',
                          tokens=token_cache['data'],
                          selected_tokens=selected_tokens,
+                         token_priorities=token_priorities,
                          last_update=last_update)
 
 @app.route('/api/tokens/<address>')
@@ -110,6 +127,7 @@ def get_wallet_tokens(address):
         # Add PLS if there's a balance
         if pls_response.ok:
             pls_data = pls_response.json()
+            print(f"PLS response: {pls_data}")  # Debug line
             pls_balance = pls_data.get('result', '0')
             if int(pls_balance) > 0:
                 tokens.append({
@@ -122,6 +140,7 @@ def get_wallet_tokens(address):
         # Add tokens with current balances
         if token_list_response.ok:
             data = token_list_response.json()
+            print(f"Token list response: {data}")  # Debug line
             token_list = data.get('result', [])
             
             for token in token_list:
@@ -134,6 +153,7 @@ def get_wallet_tokens(address):
                         'decimals': token.get('decimals')
                     })
 
+        print(f"Final tokens list: {tokens}")  # Debug line
         return jsonify(tokens)
             
     except Exception as e:
@@ -162,58 +182,53 @@ def get_single_token_info(address):
 @app.route('/add_token', methods=['POST'])
 def add_token():
     try:
-        if request.headers.get('Content-Type') == 'application/x-www-form-urlencoded':
-            address = request.form.get('token_address', '').lower()
-        else:
-            data = request.get_json()
-            address = data.get('token_address', '').lower()
+        data = request.get_json() if request.is_json else request.form
+        address = data.get('token_address', '').lower()
+        priority = data.get('priority', 'low')
 
         print(f"\n=== Adding Token: {address} ===")
-        print(f"Current token count: {len(selected_tokens)}")
-        print(f"Current selected tokens: {selected_tokens}")
+        print(f"Priority Level: {priority}")
+        print(f"Current priorities: {token_priorities}")
 
-        # Check if token is already selected
-        if address in selected_tokens:
-            print(f"Token {address} is already selected")
-            return redirect(url_for('home'))
+        # Check priority limits
+        if priority == 'high' and len(token_priorities['high']) >= 1:
+            print(f"High priority tokens: {token_priorities['high']}")
+            return jsonify({'error': 'High priority limit reached (max 1)'}), 400
+        elif priority == 'medium' and len(token_priorities['medium']) >= 2:
+            return jsonify({'error': 'Medium priority limit reached (max 2)'}), 400
+        elif priority == 'low' and len(token_priorities['low']) >= 3:
+            return jsonify({'error': 'Low priority limit reached (max 3)'}), 400
 
-        # Pre-check the limit
-        if len(selected_tokens) >= 6:
-            print("Token limit already reached")
-            return redirect(url_for('home'))
-
+        # Get token info
         if address:
-            print("Creating GeckoTerminal API instance...")
-            gecko_api = GeckoTerminalAPI()
-            
-            print(f"Fetching token info for {address}...")
-            token_info = gecko_api.get_token_info(address)
-            
-            print(f"Token info received: {token_info}")
-            
+            token_info = api.get_token_info(address)
             if token_info:
-                # Double-check limit before adding
-                if len(selected_tokens) < 6:
-                    print("Adding token to selected tokens and cache...")
-                    selected_tokens.add(address)
-                    token_cache['data'][address] = token_info
+                # Add to selected tokens and appropriate priority set
+                selected_tokens.add(address)
+                
+                # Remove from any existing priority sets
+                for p in token_priorities:
+                    token_priorities[p].discard(address)
                     
-                    print("After adding token:")
-                    print(f"Selected tokens: {selected_tokens}")
-                    print(f"Token count: {len(selected_tokens)}")
-                    print(f"Token cache: {token_cache['data'][address]}")
-                else:
-                    print("Token limit reached during processing")
+                # Add to new priority set
+                token_priorities[priority].add(address)
+                
+                # Update cache
+                token_cache['data'][address] = token_info
+                
+                print(f"Token added with priority {priority}")
+                print(f"Current priorities: {token_priorities}")
+                return jsonify({'success': True})
             else:
                 print(f"Failed to get token info for {address}")
                 
-        return redirect(url_for('home'))
+        return jsonify({'error': 'Invalid token'}), 400
         
     except Exception as e:
         print(f"Error in add_token route: {str(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        return redirect(url_for('home'))
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/remove_token', methods=['POST'])
             
 
 @app.route('/remove_token', methods=['POST'])
