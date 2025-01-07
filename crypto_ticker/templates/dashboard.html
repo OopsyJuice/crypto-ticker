@@ -203,12 +203,38 @@
 
 let selectedAccount;
 let selectedPriorities = {};
+let isMetaMaskConnected = false;
 
 function updatePrioritySelection(address, priority) {
     selectedPriorities[address] = priority;
     const button = document.querySelector(`button[onclick="addTokenToTracker('${address}')"]`);
     button.disabled = !priority;  // Enable button only when priority is selected
 }
+
+async function checkMetaMaskConnection() {
+    if (window.ethereum) {
+        try {
+            const accounts = await ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) {
+                selectedAccount = accounts[0];
+                isMetaMaskConnected = true;
+                const connectButton = document.getElementById('connectWallet');
+                connectButton.innerHTML = 'Load Tokens';
+                connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+                connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
+                connectButton.onclick = loadTokens;
+            }
+        } catch (error) {
+            console.error('Error checking MetaMask connection:', error);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    checkMetaMaskConnection();  // Check connection status immediately
+    const connectButton = document.getElementById('connectWallet');
+    connectButton.onclick = connectWallet;
+});
 
 async function displayTokenList(tokens, containerId) {
     console.log("Displaying tokens:", tokens);  // Debug line
@@ -239,14 +265,36 @@ async function displayTokenList(tokens, containerId) {
 async function loadTokens() {
     const walletTokens = document.getElementById('walletTokens');
     
-    // Show loading state
-    walletTokens.innerHTML = '<div class="loading-spinner"></div> Loading tokens...';
-    walletTokens.classList.remove('hidden');
+    try {
+        // Show loading state
+        walletTokens.innerHTML = '<div class="loading-spinner"></div> Loading tokens...';
+        walletTokens.classList.remove('hidden');
 
-    // Fetch tokens
-    const response = await fetch(`/api/tokens/${selectedAccount}`);
-    const tokens = await response.json();
-    await displayTokenList(tokens, 'walletTokens');
+        // Verify connection and account before proceeding
+        if (!selectedAccount) {
+            const accounts = await ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) {
+                selectedAccount = accounts[0];
+            } else {
+                throw new Error('No account found. Please connect MetaMask first.');
+            }
+        }
+
+        // Fetch tokens
+        const response = await fetch(`/api/tokens/${selectedAccount}`);
+        if (!response.ok) {
+            throw new Error('Failed to fetch tokens');
+        }
+        const tokens = await response.json();
+        await displayTokenList(tokens, 'walletTokens');
+    } catch (error) {
+        console.error('Error loading tokens:', error);
+        walletTokens.innerHTML = `
+            <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
+                Error: ${error.message}. Please try refreshing the page.
+            </div>
+        `;
+    }
 }
 
 async function connectWallet() {
@@ -279,10 +327,6 @@ async function connectWallet() {
         `;
     }
 }
-
-// Initial event listener
-const connectButton = document.getElementById('connectWallet');
-connectButton.onclick = connectWallet;
 
 
 async function scanWallet(event) {
