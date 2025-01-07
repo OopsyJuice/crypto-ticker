@@ -315,7 +315,6 @@ async function connectWallet() {
         connectButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
         connectButton.classList.add('bg-green-600', 'hover:bg-green-700');
         
-        // Remove old event listener and add new one
         connectButton.onclick = loadTokens;
 
     } catch (error) {
@@ -330,7 +329,7 @@ async function connectWallet() {
 
 
 async function scanWallet(event) {
-    event.preventDefault();  // Make sure we're preventing form submission
+    event.preventDefault();  // Prevent form submission
     const address = event.target.wallet_address.value;
     const resultsDiv = document.getElementById('walletScanResults');
     
