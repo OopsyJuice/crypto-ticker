@@ -19,11 +19,13 @@ A web application for tracking PulseChain token prices with customizable update 
 ## Installation
 
 1. Clone the repository:
+
    ```bash
-   git clone [repository-url]
+   git clone https://github.com/OopsyJuice/crypto-ticker
    ```
 
 2. Create and activate a virtual environment:
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Unix/macOS
@@ -31,6 +33,7 @@ A web application for tracking PulseChain token prices with customizable update 
    ```
 
 3. Install dependencies:
+
    ```bash
    pip install -r requirements.txt
    ```
@@ -49,15 +52,15 @@ A web application for tracking PulseChain token prices with customizable update 
 
 ## Technologies Used
 
-* Python Flask
-* GeckoTerminal API
-* CoinGecko API
-* Web3.js
-* Tailwind CSS
+- Python Flask
+- GeckoTerminal API
+- CoinGecko API
+- Web3.js
+- Tailwind CSS
 
 ## Contributors
 
-* Project Owner: [Your Name]
+- Project Owner: [Your Name]
 
 ## License
 
