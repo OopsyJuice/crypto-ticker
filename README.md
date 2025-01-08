@@ -58,5 +58,3 @@ A web application for tracking PulseChain token prices with customizable update 
 - CoinGecko API
 - Web3.js
 - Tailwind CSS
-
-

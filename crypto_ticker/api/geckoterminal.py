@@ -8,6 +8,7 @@ class GeckoTerminalAPI:
     BASE_URL = "https://api.geckoterminal.com/api/v2"
     ETH_BASE_URL = "https://api.geckoterminal.com/api/v2/networks/eth"
     RATE_LIMIT = 25
+    COINGECKO_RATE_LIMIT = 10  # CoinGecko free API limit is 10-30 calls per minute
     
     def __init__(self):
         self.session = requests.Session()
@@ -15,7 +16,9 @@ class GeckoTerminalAPI:
             'Accept': 'application/json'
         })
         self.last_call_times = []
+        self.last_coingecko_calls = []
         self.backoff_time = 1
+        self.coingecko_backoff_time = 60  # 60 seconds backoff for CoinGecko
 
     def _rate_limit(self):
         current_time = time.time()
@@ -31,6 +34,18 @@ class GeckoTerminalAPI:
             time.sleep(0.1)
         
         self.last_call_times.append(current_time)
+
+    def _coingecko_rate_limit(self):
+        """Handle rate limiting for CoinGecko API calls."""
+        current_time = time.time()
+        self.last_coingecko_calls = [t for t in self.last_coingecko_calls if current_time - t < 60]
+        
+        if len(self.last_coingecko_calls) >= self.COINGECKO_RATE_LIMIT:
+            sleep_time = max(60 - (current_time - self.last_coingecko_calls[0]), self.coingecko_backoff_time)
+            print(f"CoinGecko rate limit reached, waiting {sleep_time:.2f} seconds...")
+            time.sleep(sleep_time)
+        
+        self.last_coingecko_calls.append(current_time)
 
     def get_token_info(self, address: str) -> Dict:
         try:
@@ -58,6 +73,9 @@ class GeckoTerminalAPI:
             if coingecko_data:
                 print(f"Fetching {coingecko_data['symbol']} price from CoinGecko...")
                 print(f"Using CoinGecko ID: {coingecko_data['id']}")
+                
+                # Apply rate limiting before CoinGecko call
+                self._coingecko_rate_limit()
                 
                 response = self.session.get(
                     "https://api.coingecko.com/api/v3/simple/price",
@@ -90,6 +108,11 @@ class GeckoTerminalAPI:
                 else:
                     print(f"CoinGecko API error: {response.status_code}")
                     print(f"Response content: {response.text}")
+                    # If rate limited, wait and try once more
+                    if response.status_code == 429:
+                        time.sleep(self.coingecko_backoff_time)
+                        self._coingecko_rate_limit()
+                        return self.get_token_info(address)  # Retry once
                 return None
 
             # All other tokens use GeckoTerminal
@@ -99,7 +122,8 @@ class GeckoTerminalAPI:
                 f"{self.BASE_URL}/networks/pulsechain/tokens/{address}",
                 headers={'Accept': 'application/json'}
             )
-            
+
+
             if info_response.status_code == 200:
                 data = info_response.json().get('data', {})
                 attrs = data.get('attributes', {})
@@ -109,7 +133,7 @@ class GeckoTerminalAPI:
                     'address': address,
                     'symbol': attrs.get('symbol', ''),
                     'name': attrs.get('name', ''),
-                    'image_url': attrs.get('image_url', '')  # Add this line
+                    'image_url': attrs.get('image_url', '')  
                 }
 
                 # Get highest volume pool data
