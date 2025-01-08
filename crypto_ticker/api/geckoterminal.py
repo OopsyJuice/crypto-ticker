@@ -80,7 +80,8 @@ class GeckoTerminalAPI:
                             'symbol': coingecko_data['symbol'],
                             'name': coingecko_data['name'],
                             'price_usd': str(coin_data['usd']),
-                            'price_change_24h': str(coin_data.get('usd_24h_change', '0'))
+                            'price_change_24h': str(coin_data.get('usd_24h_change', '0')),
+                            'image_url': f"https://coin-images.coingecko.com/coins/images/25666/large/PLS-LogoTransparent_1.png" if address == 'native' else f"https://assets.coingecko.com/coins/images/9956/large/4943.png"
                         }
                         print(f"Returning CoinGecko data: {result}")
                         return result
@@ -107,7 +108,8 @@ class GeckoTerminalAPI:
                 token_data = {
                     'address': address,
                     'symbol': attrs.get('symbol', ''),
-                    'name': attrs.get('name', '')
+                    'name': attrs.get('name', ''),
+                    'image_url': attrs.get('image_url', '')  # Add this line
                 }
 
                 # Get highest volume pool data
