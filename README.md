@@ -1,3 +1,4 @@
+
 # LUMI Token Tracker
 
 A web application for tracking PulseChain token prices with customizable update frequencies.
@@ -58,3 +59,6 @@ A web application for tracking PulseChain token prices with customizable update 
 - CoinGecko API
 - Web3.js
 - Tailwind CSS
+
+![Screenshot 2025-01-14 143303](https://github.com/user-attachments/assets/630c66ff-8881-4e60-bdad-8809d735b824)
+![Screenshot 2025-01-14 143240](https://github.com/user-attachments/assets/bd9a2f7b-4b65-49d4-a033-a3a6389497ad)
