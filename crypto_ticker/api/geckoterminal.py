@@ -70,51 +70,69 @@ class GeckoTerminalAPI:
                 }
 
             # Handle CoinGecko tokens
+            # Handle CoinGecko tokens
             if coingecko_data:
                 print(f"Fetching {coingecko_data['symbol']} price from CoinGecko...")
                 print(f"Using CoinGecko ID: {coingecko_data['id']}")
                 
-                # Apply rate limiting before CoinGecko call
-                self._coingecko_rate_limit()
+                # Try to get from cache first
+                cached_data = self._load_cache()
                 
-                response = self.session.get(
-                    "https://api.coingecko.com/api/v3/simple/price",
-                    params={
-                        'ids': coingecko_data['id'],
-                        'vs_currencies': 'usd',
-                        'include_24hr_change': 'true'
-                    }
-                )
-                
-                print(f"CoinGecko response status: {response.status_code}")
-                if response.status_code == 200:
-                    data = response.json()
-                    print(f"CoinGecko response data: {data}")
+                try:
+                    # Apply rate limiting before CoinGecko call
+                    self._coingecko_rate_limit()
                     
-                    if coingecko_data['id'] in data:
-                        coin_data = data[coingecko_data['id']]
-                        result = {
-                            'address': address,
-                            'symbol': coingecko_data['symbol'],
-                            'name': coingecko_data['name'],
-                            'price_usd': str(coin_data['usd']),
-                            'price_change_24h': str(coin_data.get('usd_24h_change', '0')),
-                            'image_url': f"https://coin-images.coingecko.com/coins/images/25666/large/PLS-LogoTransparent_1.png" if address == 'native' else f"https://assets.coingecko.com/coins/images/9956/large/4943.png"
+                    response = self.session.get(
+                        "https://api.coingecko.com/api/v3/simple/price",
+                        params={
+                            'ids': coingecko_data['id'],
+                            'vs_currencies': 'usd',
+                            'include_24hr_change': 'true'
                         }
-                        print(f"Returning CoinGecko data: {result}")
-                        return result
-                    else:
-                        print(f"CoinGecko ID {coingecko_data['id']} not found in response")
-                else:
-                    print(f"CoinGecko API error: {response.status_code}")
-                    print(f"Response content: {response.text}")
-                    # If rate limited, wait and try once more
-                    if response.status_code == 429:
-                        time.sleep(self.coingecko_backoff_time)
-                        self._coingecko_rate_limit()
-                        return self.get_token_info(address)  # Retry once
+                    )
+                    
+                    print(f"CoinGecko response status: {response.status_code}")
+                    if response.status_code == 200:
+                        data = response.json()
+                        print(f"CoinGecko response data: {data}")
+                        
+                        if coingecko_data['id'] in data:
+                            coin_data = data[coingecko_data['id']]
+                            result = {
+                                'address': address,
+                                'symbol': coingecko_data['symbol'],
+                                'name': coingecko_data['name'],
+                                'price_usd': str(coin_data['usd']),
+                                'price_change_24h': str(coin_data.get('usd_24h_change', '0')),
+                                'image_url': f"https://coin-images.coingecko.com/coins/images/25666/large/PLS-LogoTransparent_1.png" if address == 'native' else f"https://assets.coingecko.com/coins/images/9956/large/4943.png"
+                            }
+                            print(f"Returning CoinGecko data: {result}")
+                            return result
+                    
+                    # Handle rate limit or other errors
+                    if response.status_code == 429 or response.status_code != 200:
+                        print(f"CoinGecko API error: {response.status_code}")
+                        print(f"Response content: {response.text}")
+                        
+                        # Try to use cached data
+                        if address in cached_data:
+                            print(f"Using cached data for {address}")
+                            return cached_data[address]
+                            
+                        # If no cache, wait and continue
+                        if response.status_code == 429:
+                            time.sleep(self.coingecko_backoff_time)
+                            
+                except Exception as e:
+                    print(f"Error in CoinGecko request: {str(e)}")
+                    # Try to use cached data on error
+                    if address in cached_data:
+                        print(f"Using cached data after error for {address}")
+                        return cached_data[address]
+                
                 return None
 
+            # All other tokens use GeckoTerminal
             # All other tokens use GeckoTerminal
             print(f"Using GeckoTerminal for token {address}...")
             self._rate_limit()
@@ -123,18 +141,20 @@ class GeckoTerminalAPI:
                 headers={'Accept': 'application/json'}
             )
 
-
+            print(f"GeckoTerminal token info response: {info_response.status_code}")
             if info_response.status_code == 200:
                 data = info_response.json().get('data', {})
                 attrs = data.get('attributes', {})
+                print(f"Token attributes: {attrs}")
                 
                 # Get basic token data
                 token_data = {
                     'address': address,
                     'symbol': attrs.get('symbol', ''),
                     'name': attrs.get('name', ''),
-                    'image_url': attrs.get('image_url', '')  
+                    'image_url': attrs.get('image_url', '') 
                 }
+                print(f"Basic token data: {token_data}")
 
                 # Get highest volume pool data
                 self._rate_limit()
@@ -143,26 +163,62 @@ class GeckoTerminalAPI:
                     headers={'Accept': 'application/json'}
                 )
                 
+                print(f"Pools response status: {pools_response.status_code}")
                 if pools_response.status_code == 200:
                     pools_data = pools_response.json().get('data', [])
+                    print(f"Number of pools found: {len(pools_data)}")
                     if pools_data:
-                        # Find highest volume pool
+                        # Find highest volume pool with valid price
                         max_volume = 0
                         best_pool = None
+                        print(f"\nAnalyzing pools for {token_data['symbol']}:")
+                        
                         for pool in pools_data:
                             attrs = pool.get('attributes', {})
                             volume = float(attrs.get('volume_usd', {}).get('h24', '0') or '0')
+                            base_symbol = attrs.get('base_token_symbol', '')
+                            quote_symbol = attrs.get('quote_token_symbol', '')
+                            base_price = attrs.get('base_token_price_usd')
+                            quote_price = attrs.get('quote_token_price_usd')
+                            
+                            print(f"\nPool: {base_symbol}-{quote_symbol}")
+                            print(f"Volume: ${volume:,.2f}")
+                            print(f"Base price: ${base_price}")
+                            print(f"Quote price: ${quote_price}")
+                            
+                            # Skip pools with zero or invalid prices
+                            if volume == 0:
+                                print("Skipping pool: Zero volume")
+                                continue
+                                
                             if volume > max_volume:
                                 max_volume = volume
                                 best_pool = pool
+                                print("Selected as current best pool")
                         
                         if best_pool:
                             pool_attrs = best_pool.get('attributes', {})
                             token_symbol = token_data['symbol']
+                            base_symbol = pool_attrs.get('base_token_symbol', '')
+                            quote_symbol = pool_attrs.get('quote_token_symbol', '')
+                            
+                            print(f"\nSelected pool: {base_symbol}-{quote_symbol}")
+                            print(f"Token we want: {token_symbol}")
                             
                             # Determine if token is base or quote
-                            is_base = token_symbol == pool_attrs.get('base_token_symbol', '')
-                            price = pool_attrs.get('base_token_price_usd' if is_base else 'quote_token_price_usd', '0')
+                            is_base = token_symbol.upper() == base_symbol.upper()
+                            is_quote = token_symbol.upper() == quote_symbol.upper()
+                            
+                            if is_base:
+                                price = pool_attrs.get('base_token_price_usd', '0')
+                                print(f"Token is base token, price: ${price}")
+                            elif is_quote:
+                                price = pool_attrs.get('quote_token_price_usd', '0')
+                                print(f"Token is quote token, price: ${price}")
+                            else:
+                                print("WARNING: Token symbol doesn't match either side of pool!")
+                                price = '0'
+                            
                             price_change = pool_attrs.get('price_change_percentage', {}).get('h24', '0')
                             
                             result = {
@@ -170,8 +226,14 @@ class GeckoTerminalAPI:
                                 'price_usd': price,
                                 'price_change_24h': price_change
                             }
-                            print(f"Returning GeckoTerminal data: {result}")
+                            print(f"\nFinal result: {result}")
                             return result
+                        else:
+                            print("No best pool found despite having pools data")
+                    else:
+                        print("No pools data found")
+                else:
+                    print(f"Failed to get pools data. Status: {pools_response.status_code}")
             
             print(f"Error fetching token info for {address}")
             return None
@@ -197,9 +259,40 @@ class GeckoTerminalAPI:
             json.dump(data, f)
 
     def update_cached_tokens(self, addresses: List[str]) -> Dict[str, Dict]:
+        """Update cache for multiple tokens with staggered loading and error handling."""
+        print("\n=== Updating Cached Tokens ===")
         tokens = {}
+        
+        # Try to load existing cache first
+        cached_data = self._load_cache()
+        
         for address in addresses:
-            token_info = self.get_token_info(address)
-            if token_info:
-                tokens[address] = token_info
+            try:
+                # Add delay between requests to avoid rate limits
+                time.sleep(2)  # 2-second delay between requests
+                
+                print(f"Updating token: {address}")
+                token_info = self.get_token_info(address)
+                
+                if token_info:
+                    tokens[address] = token_info
+                elif address in cached_data:
+                    # If we fail to get new data, use cached data
+                    print(f"Using cached data for {address}")
+                    tokens[address] = cached_data[address]
+                else:
+                    print(f"No data available for {address}")
+                    continue
+                    
+            except Exception as e:
+                print(f"Error updating token {address}: {str(e)}")
+                # Try to use cached data if update fails
+                if address in cached_data:
+                    print(f"Using cached data for {address} after error")
+                    tokens[address] = cached_data[address]
+        
+        # Save successful updates to cache
+        if tokens:
+            self._save_cache(tokens)
+        
         return tokens

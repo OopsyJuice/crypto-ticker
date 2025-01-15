@@ -274,6 +274,9 @@ def remove_token():
         if 'last_updates' in token_cache:
             token_cache['last_updates'].pop(address, None)
             
+        # Save the current state to storage
+        storage.save_current_state(selected_tokens, token_priorities)
+            
         # If it was an API request, return JSON response
         if request.is_json:
             return jsonify({'success': True, 'message': 'Token removed successfully'})
