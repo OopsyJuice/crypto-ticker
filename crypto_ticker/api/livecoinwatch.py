@@ -47,7 +47,8 @@ class LiveCoinWatchClient:
                     'symbol': symbol,
                     'name': name,
                     'price_usd': str(result.get('rate', 0)),
-                    'price_change_24h': str(result.get('delta', {}).get('day', 0))
+                    'price_change_24h': str(result.get('delta', {}).get('day', 0)),
+                    'logo': result.get('png64', '')  # Add logo URL
                 }
             return None
 
@@ -108,3 +109,4 @@ class LiveCoinWatchClient:
     def __del__(self):
         # Remove the close() call since it's not supported
         pass
+

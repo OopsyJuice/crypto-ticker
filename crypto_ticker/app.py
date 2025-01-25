@@ -1,11 +1,11 @@
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_from_directory
 from api.livecoinwatch import LiveCoinWatchClient
 import threading
 import time
 import re
 import requests
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='/static', static_folder='static')
 api = LiveCoinWatchClient()
 
 # Cache for tokens

@@ -129,6 +129,10 @@
                         <div class="flex justify-between items-start">
                             <div>
                                 <div class="flex items-center gap-2">
+                                    <img src="{{ tokens[address].logo or '/static/images/default-token.png' }}" 
+                                         alt="{{ tokens[address].symbol }} logo" 
+                                         class="w-8 h-8 rounded-full bg-white p-1"
+                                         onerror="this.src='/static/images/default-token.png'"/>
                                     <h3 class="font-bold text-xl text-gray-800 dark:text-white">{{ tokens[address].symbol }}</h3>
                                     {% if address in token_priorities['high'] %}
                                         <span class="px-2 py-1 text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">1m updates</span>
@@ -357,36 +361,42 @@ async function scanWallet(event) {
     }
 }
 
-async function searchToken(event) {
-    event.preventDefault();
+// Update the form submission handler
+document.getElementById('tokenSearchForm').addEventListener('submit', async function(event) {
+    event.preventDefault();  // Prevent form submission
     const address = event.target.token_address.value;
     const resultDiv = document.getElementById('tokenSearchResult');
     
     try {
-        resultDiv.innerHTML = '<div class="text-sm text-gray-500 dark:text-gray-400">Searching token...</div>';
-        const response = await fetch(`/api/token/${address}`);
-        const token = await response.json();
+        // Show loading state
+        resultDiv.innerHTML = '<div class="text-center p-4">Loading...</div>';
         
-        if (token) {
+        // Call the backend API
+        const response = await fetch(`/api/token/${address}`);
+        const data = await response.json();
+        
+        if (data) {
             const template = document.getElementById('tokenItemTemplate').innerHTML;
-            resultDiv.innerHTML = template
-                .replace(/{symbol}/g, token.symbol || 'Unknown')
-                .replace(/{address}/g, token.address);
+            const filledTemplate = template
+                .replace(/{symbol}/g, data.symbol || 'Unknown')
+                .replace(/{address}/g, address);
+            resultDiv.innerHTML = filledTemplate;
         } else {
             resultDiv.innerHTML = `
-                <div class="text-sm text-gray-500 dark:text-gray-400 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
                     Token not found
                 </div>
             `;
         }
     } catch (error) {
+        console.error('Error searching token:', error);
         resultDiv.innerHTML = `
             <div class="text-sm text-red-500 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900 rounded-lg">
-                Error: ${error.message}
+                Error searching for token: ${error.message}
             </div>
         `;
     }
-}
+});
 
 async function addTokenToTracker(address) {
     try {
@@ -443,6 +453,22 @@ async function addTokenToTracker(address) {
     } catch (error) {
         console.error('Error adding token:', error);
     }
+}
+
+// Update the token display function
+function updateTokenDisplay(token) {
+    return `
+        <div class="flex items-center gap-3">
+            <img src="${token.logo || '/static/images/default-token.png'}" 
+                 alt="${token.symbol} logo" 
+                 class="w-8 h-8 rounded-full bg-white p-1"
+                 onerror="this.src='/static/images/default-token.png'"/>
+            <div class="flex flex-col">
+                <span class="font-medium text-gray-900 dark:text-white">${token.symbol}</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">${token.name}</span>
+            </div>
+        </div>
+    `;
 }
 
 </script>
