@@ -80,9 +80,9 @@ class LiveCoinWatchClient:
                 'code': 'HEX'
             },
             '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': {
-                'symbol': 'pHEX',
+                'symbol': 'HEX',
                 'name': 'HEX (PulseChain)',
-                'code': '___HEX',  # Updated code for PLS HEX
+                'code': '___HEX',
                 'platform': 'PULSECHAIN'
             },
             '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d': {
@@ -92,8 +92,9 @@ class LiveCoinWatchClient:
             },
             '0x6b175474e89094c44da98b954eedeac495271d0f': {
                 'symbol': 'pDAI',
-                'name': 'DAI on PulseChain',
-                'code': 'DAI'
+                'name': 'DAI (PulseChain)',
+                'code': '___DAI',  # Updated code for PLS DAI
+                'platform': 'PULSECHAIN'  # Added platform
             }
         }
         return token_mapping.get(address.lower())
