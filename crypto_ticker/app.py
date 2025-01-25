@@ -1,12 +1,12 @@
 from flask import Flask, render_template, jsonify, request, redirect, url_for
-from api.geckoterminal import GeckoTerminalAPI
+from api.livecoinwatch import LiveCoinWatchClient
 import threading
 import time
 import re
 import requests
 
 app = Flask(__name__)
-api = GeckoTerminalAPI()
+api = LiveCoinWatchClient()
 
 # Cache for tokens
 token_cache = {
@@ -227,9 +227,6 @@ def add_token():
     except Exception as e:
         print(f"Error in add_token route: {str(e)}")
         return jsonify({'error': str(e)}), 500
-
-@app.route('/remove_token', methods=['POST'])
-            
 
 @app.route('/remove_token', methods=['POST'])
 def remove_token():
