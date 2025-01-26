@@ -1,4 +1,5 @@
 from pylivecoinwatch import LiveCoinWatchAPI
+from .token_mapping import token_mapping
 import os
 from dotenv import load_dotenv
 
@@ -57,47 +58,8 @@ class LiveCoinWatchClient:
             return None
 
     def _get_token_data(self, address: str) -> dict:
-        # Enhanced token mapping with more data
-        token_mapping = {
-            'native': {
-                'symbol': 'PLS',
-                'name': 'PulseChain',
-                'code': 'PLS'
-            },
-            '0xa1077a294dde1b09bb078844df40758a5d0f9a27': {
-                'symbol': 'WPLS',
-                'name': 'Wrapped PulseChain',
-                'code': 'PLS'
-            },
-            '0x95b303987a60c71504d99aa1b13b4da07b0790ab': {
-                'symbol': 'PLSX',
-                'name': 'PulseX',
-                'code': 'PLSX'
-            },
-            '0x57fde0a71132198bbec939b98976993d8d89d225': {
-                'symbol': 'eHEX',
-                'name': 'HEX (Ethereum)',
-                'code': 'HEX'
-            },
-            '0x2b591e99afe9f32eaa6214f7b7629768c40eeb39': {
-                'symbol': 'HEX',
-                'name': 'HEX (PulseChain)',
-                'code': '___HEX',
-                'platform': 'PULSECHAIN'
-            },
-            '0x2fa878ab3f87cc1c9737fc071108f904c0b0c95d': {
-                'symbol': 'INC',
-                'name': 'Incentive',
-                'code': '__INC'
-            },
-            '0x6b175474e89094c44da98b954eedeac495271d0f': {
-                'symbol': 'pDAI',
-                'name': 'DAI (PulseChain)',
-                'code': '___DAI',  # Updated code for PLS DAI
-                'platform': 'PULSECHAIN'  # Added platform
-            }
-        }
         return token_mapping.get(address.lower())
+
 
     def update_cached_tokens(self, addresses: list) -> dict:
         tokens = {}
@@ -110,4 +72,10 @@ class LiveCoinWatchClient:
     def __del__(self):
         # Remove the close() call since it's not supported
         pass
+
+def get_token_info(token_code):
+    if token_code in token_mapping:
+        return token_mapping[token_code]
+    else:
+        return None
 
